@@ -13,6 +13,5 @@ public interface TodoRepository extends JpaRepository<TodoEntry, Long> {
     void deleteByCompleted(boolean completed);
     List<TodoEntry> findByCompleted(boolean completed, Sort sort);
     List<TodoEntry> findByPriority(Priority priority, Sort sort);
-    List<TodoEntry> findBydueDate(LocalDate dueDate, Sort sort);
     List<TodoEntry> findByCompletedAndPriority(boolean completed, Priority priority, Sort sort);
 }

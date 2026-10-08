@@ -61,6 +61,8 @@ public class TodoService {
             existingTodo.setTitle(updatedTodo.getTitle());
             existingTodo.setDescription(updatedTodo.getDescription());
             existingTodo.setCompleted(updatedTodo.isCompleted());
+            existingTodo.setPriority(updatedTodo.getPriority());
+            existingTodo.setDueDate(updatedTodo.getDueDate());
             return repository.save(existingTodo);
         }).orElseThrow(() -> new IllegalArgumentException("Task with ID " + id + " was not found"));
     }

@@ -1,20 +1,46 @@
 package com.example.todo_app;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-// Tyto dva importy musíme přidat ručně pro assertEquals a assertNotNull
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import java.time.LocalDate;
 
-@SpringBootTest
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
 class TodoAppApplicationTests {
 
-	@Autowired
-	private TodoController controller;
+    @Mock
+    private TodoRepository repository;
 
-	@Test
-	void testCreateTodoItem() {
-	}
+    @InjectMocks
+    private TodoService service;
+
+    @Test
+    void testCreateTodo() {
+        TodoEntry newTodo = new TodoEntry("Title", "", Priority.HIGH, LocalDate.now().plusDays(1));
+
+        when(repository.save(any(TodoEntry.class))).thenReturn(newTodo);
+
+        TodoEntry savedTodo = service.createTodo(newTodo);
+
+        assertNotNull(savedTodo);
+        assertEquals("Title", savedTodo.getTitle());
+        verify(repository, times(1)).save(newTodo);
+    }
+
+    @Test
+    void testCreateTodoException() {
+        TodoEntry badTodo = new TodoEntry("", "Title", Priority.HIGH, null);
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            service.createTodo(badTodo);
+        });
+        verify(repository, never()).save(any());
+    }
 }
