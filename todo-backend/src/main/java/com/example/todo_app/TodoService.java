@@ -21,14 +21,14 @@ public class TodoService {
 
         switch (sortBy != null ? sortBy : "") {
             case "dueDate":
-                sort = Sort.by(Sort.Direction.ASC, "dueDate");
+                sort = Sort.by(Sort.Order.asc("dueDate").nullsLast());
                 break;
             case "priority":
                 sort = Sort.by(Sort.Direction.ASC, "priority");
                 break;
             case "priority-date":
                 sort = Sort.by(Sort.Direction.ASC, "priority")
-                        .and(Sort.by(Sort.Direction.ASC, "dueDate"));
+                        .and(Sort.by(Sort.Order.asc("dueDate").nullsLast()));
                 break;
             default:
                 sort = Sort.by(Sort.Direction.DESC, "id");
