@@ -14,6 +14,8 @@ This project is a clean and minimalist Todo application.
 Open your terminal and navigate to the backend directory:
 `cd todo-backend`
 
+Important: The backend is pre-configured to allow frontend connections from http://localhost:5173. If your frontend development server starts on a different port, update the `frontend.url` property in src/main/resources/application.properties.
+
 Run the Spring Boot application using the provided Maven wrapper (the database and tables will be initialized automatically):
 * On Windows: `mvnw.cmd spring-boot:run`
 * On Mac/Linux: `./mvnw spring-boot:run`
