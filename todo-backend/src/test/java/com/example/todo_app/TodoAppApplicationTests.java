@@ -23,24 +23,52 @@ class TodoAppApplicationTests {
 
     @Test
     void testCreateTodo() {
-        TodoEntry newTodo = new TodoEntry("Title", "", Priority.HIGH, LocalDate.now().plusDays(1));
+        TodoRequestDTO requestDto = new TodoRequestDTO();
+        requestDto.setTitle("Title");
+        requestDto.setDescription("");
+        requestDto.setPriority(Priority.HIGH);
+        requestDto.setDueDate(LocalDate.now().plusDays(1));
 
-        when(repository.save(any(TodoEntry.class))).thenReturn(newTodo);
+        TodoEntry savedEntity = new TodoEntry("Title", "", Priority.HIGH, LocalDate.now().plusDays(1));
+        savedEntity.setId(1L);
 
-        TodoEntry savedTodo = service.createTodo(newTodo);
+        when(repository.save(any(TodoEntry.class))).thenReturn(savedEntity);
+        TodoResponseDTO responseDto = service.createTodo(requestDto);
 
-        assertNotNull(savedTodo);
-        assertEquals("Title", savedTodo.getTitle());
-        verify(repository, times(1)).save(newTodo);
+        assertNotNull(responseDto);
+        assertEquals("Title", responseDto.getTitle());
+        assertEquals(1L, responseDto.getId());
+
+        verify(repository, times(1)).save(any(TodoEntry.class));
     }
 
     @Test
-    void testCreateTodoException() {
-        TodoEntry badTodo = new TodoEntry("", "Title", Priority.HIGH, null);
+    void testCreateTodoException_EmptyTitle() {
+        TodoRequestDTO badRequestDto = new TodoRequestDTO();
+        badRequestDto.setTitle("");
+        badRequestDto.setDescription("Description");
+        badRequestDto.setDueDate(LocalDate.now().plusDays(1));
+        badRequestDto.setPriority(Priority.HIGH);
 
         assertThrows(IllegalArgumentException.class, () -> {
-            service.createTodo(badTodo);
+            service.createTodo(badRequestDto);
         });
+
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void testCreateTodoException_PastDate() {
+        TodoRequestDTO badRequestDto = new TodoRequestDTO();
+        badRequestDto.setTitle("Valid Title");
+        badRequestDto.setDescription("Description");
+        badRequestDto.setDueDate(LocalDate.now().minusDays(1));
+        badRequestDto.setPriority(Priority.HIGH);
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            service.createTodo(badRequestDto);
+        });
+
         verify(repository, never()).save(any());
     }
 }

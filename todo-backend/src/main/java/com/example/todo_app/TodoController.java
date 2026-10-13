@@ -8,7 +8,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/todos")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "${frontend.url}")
 public class TodoController {
 
     private final TodoService service;
@@ -18,7 +18,7 @@ public class TodoController {
     }
 
     @GetMapping
-    public ResponseEntity<List<TodoEntry>> getTodos(
+    public ResponseEntity<List<TodoResponseDTO>> getTodos(
             @RequestParam(required = false) Boolean completed,
             @RequestParam(required = false) Priority priority,
             @RequestParam(required = false) String sortBy) {
@@ -27,25 +27,34 @@ public class TodoController {
     }
 
     @PostMapping
-    public ResponseEntity<TodoEntry> createTodo(@RequestBody TodoEntry todo) {
-        TodoEntry created = service.createTodo(todo);
+    public ResponseEntity<TodoResponseDTO> createTodo(@RequestBody TodoRequestDTO request) {
+        TodoResponseDTO created = service.createTodo(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTodo(@PathVariable Long id) {
-        service.deleteTodo(id);
-        return ResponseEntity.noContent().build();
+        if (service.deleteTodo(id)) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<TodoEntry> updateTodo(@PathVariable Long id, @RequestBody TodoEntry updatedTodo) {
-        return ResponseEntity.ok(service.updateTodo(id, updatedTodo));
+    public ResponseEntity<TodoResponseDTO> updateTodo(@PathVariable Long id, @RequestBody TodoRequestDTO request) {
+        return service.updateTodo(id, request)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/completed")
     public ResponseEntity<Void> deleteCompletedTodos() {
         service.deleteCompletedTodos();
         return ResponseEntity.noContent().build();
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<String> handleIllegalArgumentException(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
     }
 }

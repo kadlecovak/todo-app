@@ -6,6 +6,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class TodoService {
@@ -16,66 +18,97 @@ public class TodoService {
         this.repository = repository;
     }
 
-    public List<TodoEntry> getTodos(Boolean completed, Priority priority, String sortBy) {
-        Sort sort;
+    public List<TodoResponseDTO> getTodos(Boolean completed, Priority priority, String sortBy) {
 
+        Sort sort = Sort.by(Sort.Direction.ASC, "completed");
+        
         switch (sortBy != null ? sortBy : "") {
             case "dueDate":
-                sort = Sort.by(Sort.Order.asc("dueDate").nullsLast());
+                sort = sort.and(Sort.by(Sort.Order.asc("dueDate").nullsLast()));
                 break;
             case "priority":
-                sort = Sort.by(Sort.Direction.ASC, "priority");
+                sort = sort.and(Sort.by(Sort.Direction.ASC, "priority"));
                 break;
             case "priority-date":
-                sort = Sort.by(Sort.Direction.ASC, "priority")
+                sort = sort.and(Sort.by(Sort.Direction.ASC, "priority"))
                         .and(Sort.by(Sort.Order.asc("dueDate").nullsLast()));
                 break;
             default:
-                sort = Sort.by(Sort.Direction.DESC, "id");
+                sort = sort.and(Sort.by(Sort.Direction.DESC, "id"));
                 break;
         }
 
+        List<TodoEntry> entries;
         if (completed != null && priority != null) {
-            return repository.findByCompletedAndPriority(completed, priority, sort);
+            entries = repository.findByCompletedAndPriority(completed, priority, sort);
         } else if (completed != null) {
-            return repository.findByCompleted(completed, sort);
+            entries = repository.findByCompleted(completed, sort);
         } else if (priority != null) {
-            return repository.findByPriority(priority, sort);
+            entries = repository.findByPriority(priority, sort);
         } else {
-            return repository.findAll(sort);
+            entries = repository.findAll(sort);
         }
+
+        return entries.stream().map(this::mapToDTO).collect(Collectors.toList());
     }
 
-    public TodoEntry createTodo(TodoEntry todo) {
-        if (todo.getTitle() == null || todo.getTitle().trim().isEmpty()) {
+    public TodoResponseDTO createTodo(TodoRequestDTO request) {
+        if (request.getTitle() == null || request.getTitle().trim().isEmpty()) {
             throw new IllegalArgumentException("Task title cannot be empty");
         }
-        if (todo.getDueDate() != null && todo.getDueDate().isBefore(LocalDate.now())) {
+        if (request.getDueDate() != null && request.getDueDate().isBefore(LocalDate.now())) {
             throw new IllegalArgumentException("Due date cannot be in the past");
         }
-        return repository.save(todo);
+
+        TodoEntry todo = new TodoEntry(
+                request.getTitle(),
+                request.getDescription(),
+                request.getPriority(),
+                request.getDueDate()
+        );
+
+        TodoEntry saved = repository.save(todo);
+        return mapToDTO(saved);
     }
 
-    public TodoEntry updateTodo(Long id, TodoEntry updatedTodo) {
-        return repository.findById(id).map(existingTodo -> {
-            existingTodo.setTitle(updatedTodo.getTitle());
-            existingTodo.setDescription(updatedTodo.getDescription());
-            existingTodo.setCompleted(updatedTodo.isCompleted());
-            existingTodo.setPriority(updatedTodo.getPriority());
-            existingTodo.setDueDate(updatedTodo.getDueDate());
-            return repository.save(existingTodo);
-        }).orElseThrow(() -> new IllegalArgumentException("Task with ID " + id + " was not found"));
-    }
-
-    public void deleteTodo(Long id) {
-        if (!repository.existsById(id)) {
-            throw new IllegalArgumentException("Task with ID " + id + " was not found");
+    public Optional<TodoResponseDTO> updateTodo(Long id, TodoRequestDTO request) {
+        if (request.getTitle() == null || request.getTitle().trim().isEmpty()) {
+            throw new IllegalArgumentException("Task title cannot be empty");
         }
-        repository.deleteById(id);
+
+        return repository.findById(id).map(existingTodo -> {
+            existingTodo.setTitle(request.getTitle());
+            existingTodo.setDescription(request.getDescription());
+            existingTodo.setCompleted(request.isCompleted());
+            existingTodo.setPriority(request.getPriority());
+            existingTodo.setDueDate(request.getDueDate());
+
+            TodoEntry updated = repository.save(existingTodo);
+            return mapToDTO(updated);
+        });
+    }
+
+    public boolean deleteTodo(Long id) {
+        if (repository.existsById(id)) {
+            repository.deleteById(id);
+            return true;
+        }
+        return false;
     }
 
     @Transactional
     public void deleteCompletedTodos() {
         repository.deleteByCompleted(true);
+    }
+
+    private TodoResponseDTO mapToDTO(TodoEntry todo) {
+        return new TodoResponseDTO(
+                todo.getId(),
+                todo.getTitle(),
+                todo.getDescription(),
+                todo.getPriority(),
+                todo.getDueDate(),
+                todo.isCompleted()
+        );
     }
 }

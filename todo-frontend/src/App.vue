@@ -21,7 +21,9 @@ const fetchTodos = async () => {
   if (filters.value.sortBy !== '') params.append('sortBy', filters.value.sortBy)
 
   const response = await fetch(`${API_URL}?${params.toString()}`)
-  todos.value = await response.json()
+  if (response.ok) {
+    todos.value = await response.json()
+  }
 }
 
 const openAddModal = () => {
@@ -45,33 +47,26 @@ const saveTask = async () => {
   isSaving.value = true
 
   try {
-    let response;
+    const method = isEditing.value ? 'PUT' : 'POST'
+    const url = isEditing.value ? `${API_URL}/${taskForm.value.id}` : API_URL
 
-    if (isEditing.value) {
-      response = await fetch(`${API_URL}/${taskForm.value.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(taskForm.value)
-      })
-    } else {
-      response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(taskForm.value)
-      })
-    }
+    const response = await fetch(url, {
+      method: method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(taskForm.value)
+    })
 
     if (!response.ok) {
-      const errorData = await response.json()
-      alert("Save failed. Please check that the due date is not in the past.")
-      return 
+      const errorMessage = await response.text()
+      alert(`Save failed: ${errorMessage}`)
+      return
     }
 
+    closeTaskModal()
     await fetchTodos()
 
-    closeTaskModal() 
   } catch (error) {
-    console.error("Error saving task:", error)
+    alert("Network error. Could not connect to the server.")
   } finally {
     isSaving.value = false
   }
@@ -84,35 +79,39 @@ const confirmDelete = (todo) => {
 
 const executeDelete = async () => {
   if (!taskToDelete.value) return
-  await fetch(`${API_URL}/${taskToDelete.value.id}`, { method: 'DELETE' })
-  todos.value = todos.value.filter(t => t.id !== taskToDelete.value.id)
-  showDeleteModal.value = false
-  taskToDelete.value = null
+  
+  const response = await fetch(`${API_URL}/${taskToDelete.value.id}`, { method: 'DELETE' })
+  
+  if (response.ok) {
+    showDeleteModal.value = false
+    taskToDelete.value = null
+    await fetchTodos()
+  }
+}
+
+const clearCompleted = async () => {
+  const response = await fetch(`${API_URL}/completed`, { method: 'DELETE' })
+  if (response.ok) {
+    await fetchTodos()
+  }
 }
 
 const toggleComplete = async (todo) => {
   const updatedTodo = { ...todo, completed: !todo.completed }
-  await fetch(`${API_URL}/${todo.id}`, {
+  
+  const response = await fetch(`${API_URL}/${todo.id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updatedTodo)
   })
-  await fetchTodos()
-  todo.completed = !todo.completed
+
+  if (response.ok) {
+    await fetchTodos()
+  } else {
+    alert("Failed to update status.")
+    await fetchTodos()
+  }
 }
-
-const clearCompleted = async () => {
-  await fetch(`${API_URL}/completed`, { method: 'DELETE' })
-  todos.value = todos.value.filter(t => !t.completed)
-}
-
-
-const sortedTodos = computed(() => {
-  return [...todos.value].sort((a, b) => {
-    if (a.completed !== b.completed) return a.completed ? 1 : -1
-    return 0 
-  })
-})
 
 const totalTasks = computed(() => todos.value.length)
 const completedTasks = computed(() => todos.value.filter(t => t.completed).length)
@@ -165,7 +164,7 @@ onMounted(() => {
       </div>
 
       <ul v-else class="todo-list">
-        <li v-for="todo in sortedTodos" :key="todo.id" :class="{ completed: todo.completed }">
+        <li v-for="todo in todos" :key="todo.id" :class="{ completed: todo.completed }">
           
           <div class="task-content">
             <input type="checkbox" :checked="todo.completed" @change="toggleComplete(todo)" />
